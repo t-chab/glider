@@ -2,10 +2,26 @@
   description = "glider is a forward proxy with multiple protocols support, and also a dns/dhcp server with ipset management features";
 
   # Nixpkgs / NixOS version to use.
-  inputs.nixpkgs.url = "nixpkgs/nixos-22.05";
+  inputs = {
+    nixpkgs.url = "nixpkgs/nixos-22.05";
+    flake-utils.url = "github:numtide/flake-utils";
+    goflake.url = "github:sagikazarmark/go-flake";
+    goflake.inputs.nixpkgs.follows = "nixpkgs";
+  };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, flake-utils, goflake, ...  }:
+      flake-utils.lib.eachDefaultSystem (system:
     let
+      pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ goflake.overlay ];
+        };
+      buildDeps = with pkgs; [ git go_1_18 gnumake ];
+      devDeps = with pkgs; buildDeps ++ [
+          golangci-lint
+          gotestsum
+          goreleaser
+        ];
 
       # Generate a user-friendly version number.
       version = builtins.substring 0 8 self.lastModifiedDate;
@@ -51,5 +67,6 @@
             vendorSha256 = pkgs.lib.fakeSha256;
           };
         });
-    };
+      devShell = pkgs.mkShell { buildInputs = devDeps; };
+    });
 }
